@@ -1,9 +1,40 @@
-from flask import Flask, request, make_response, jsonify
-from helpers.dbhelpers import run_statement
-from dbcreds import production_mode
+from flask import request, make_response, jsonify
+from helpers.dbhelpers import run_statement,execute_statement
 from app import app
 import bcrypt
 from uuid import uuid4
+
+#!NEED 
+# ^ AN ERROR IF THE USERNAME AND OR PASSWORD DOESNT MATCH THE ONE IN RECORD
+
+
+@app.get('/api/user')
+def get_user():
+    token = request.headers.get('token')
+    # print(token)
+    result = run_statement("CALL get_user_info(?)", [token])
+    keys = ["firstname", "lastname", "username", "email","created_at"]
+    response = []
+    if(type(result) == list):
+        for u in result:
+            zipped = zip(keys,u)
+            response.append(dict(zipped))
+        return make_response(jsonify(response), 200)
+    else:
+        return make_response(jsonify("Error"), 500)
+    
+@app.patch('/api/user')
+def update_user():
+    token = request.headers.get('token')
+    first_name_input = request.json.get('firstName')
+    last_name_input = request.json.get('lastName')
+    username_input = request.json.get('username')
+    email_input = request.json.get('email')
+    result = run_statement("CALL update_user_info(?,?,?,?,?)", [token, first_name_input, last_name_input,username_input,email_input])
+    if (type(result)==list):
+        return make_response(jsonify("Profile updated successfully!"), 200)
+    else:
+        return make_response(jsonify("Error"), 500)
 
 
 @app.post('/api/user')
@@ -13,81 +44,34 @@ def signup():
     username = request.json.get("userName")
     email = request.json.get("email")
     password = request.json.get("password")
+    if not password:
+        return make_response(jsonify("Please enter a password"), 400)
     salt = bcrypt.gensalt()
     hash_result = bcrypt.hashpw(password.encode(), salt)
-    result = run_statement("CALL signup(?,?,?,?,?)", [first_name, last_name, username, email, hash_result])
-    if result == None:
-        return make_response(jsonify("Signed up successfully"), 200)
-    else:
-        return make_response(jsonify(result), 500)
-    
-
-
-@app.post('/api/user-login')
-def login():
-    """
-    1. get the user_id and password when the user enters the username
-    2. if result is empty, tell the user to enter a valid username
-    3. if the result is == list then user_id should == first element of the list and pass == second elementof the list
-    4. convert password string into bytes
-    5. create a userInput .json
-    6. compare the two(userInputPass and hashed_pass)
-    7. generate a token with username value in the beginning of the token
-    8. call log_in procedure that takes generated token value and user id
-    """
-    username = request.json.get("username")
-    result = run_statement("CALL get_pass(?)", [username])
+    result = run_statement("CALL user_signup(?,?,?,?,?)", [first_name, last_name, username, email, hash_result])
     if (result == []):
-        return "Please enter a valid username"
-    if(type(result) == list):
-        user_id = result [0][0]
-        hashed_pass = result[0][1].encode()
-    userInput_pass = request.json.get("password").encode()
-    if (bcrypt.checkpw(userInput_pass, hashed_pass)):
+        return make_response(jsonify({"error": "Please fill out all the fields"}), 400)
+    if isinstance(result, list) and result:
         token = uuid4().hex
         new_token = username + token
-        response = run_statement("CALL user_login(?,?)", [new_token, user_id])
-        if response == None:
-            return make_response(jsonify("Logged in successfully"), 200)
+        user_id = result[0][0]
+        run_statement("CALL user_login(?,?)", [new_token, user_id])
+        return make_response(jsonify("Signed up successfully", new_token), 200)
+    elif "user_UN_username" in result:
+            return make_response(jsonify("This username is already taken, please choose a different username."), 409)
+    elif "user_UN_email" in result:
+        return make_response(jsonify("This email is already registered. Please login or choose a different email."),409)
+    elif "user_CHECK_email_format" in result:
+        return make_response(jsonify("Please enter a valid email"),409)
     else:
-        return make_response(jsonify("Error"), 400)
+        return make_response(jsonify("something went wrong"), 500)
+    
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-@app.get('/api/user-login')
-def get_user():
-    token = request.headers.get("token")
-    get_user = run_statement("CALL get_user()")
-    keys = ["id","firstName", "lastName", "username", "email", "created_at"]
-    result = []
-    if(type(get_user) == list):
-        if token == None:
-            return "You must enter a valid user token"
-        for user in get_user:
-            zipped = zip(keys, user)
-            result.append(dict(zipped))
-        return make_response(jsonify(result), 200)
-        # 200 code is good to get a get request
+@app.delete('/api/user')
+def delete_user():
+    token = request.headers.get('token')
+    result = run_statement("CALL delete_user(?)", [token])
+    if result == None:
+        return make_response(jsonify("Acct deleted!"), 200)
     else:
-        return make_response(jsonify(result), 500)
-
-
+        return make_response(jsonify("Error"), 500)
