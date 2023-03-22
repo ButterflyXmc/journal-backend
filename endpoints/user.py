@@ -4,9 +4,6 @@ from app import app
 import bcrypt
 from uuid import uuid4
 
-#!NEED 
-# ^ AN ERROR IF THE USERNAME AND OR PASSWORD DOESNT MATCH THE ONE IN RECORD
-
 
 @app.get('/api/user')
 def get_user():
