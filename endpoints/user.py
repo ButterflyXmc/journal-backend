@@ -22,13 +22,18 @@ def get_user():
     
 @app.patch('/api/user')
 def update_user():
-    token = request.headers.get('token')
-    first_name_input = request.json.get('firstName')
-    last_name_input = request.json.get('lastName')
-    username_input = request.json.get('username')
-    email_input = request.json.get('email')
-    result = run_statement("CALL update_user_info(?,?,?,?,?)", [token, first_name_input, last_name_input,username_input,email_input])
-    if (type(result)==list):
+    token = request.headers.get("token")
+    first_name_input = request.json.get("firstName")
+    last_name_input = request.json.get("lastName")
+    username_input = request.json.get("username")
+    email_input = request.json.get("email")
+    result = run_statement("CALL update_user_info(?,?,?,?,?)", [token, 
+                                                                first_name_input, 
+                                                                last_name_input,
+                                                                username_input,
+                                                                email_input])
+    # return(result) # print the value of result
+    if(type(result) == list):
         return make_response(jsonify("Profile updated successfully!"), 200)
     else:
         return make_response(jsonify("Error"), 500)
