@@ -14,5 +14,5 @@ else:
     print("Running testing mode")
     # adding CROS so it will accept requests from different origins
     from flask_cors import CORS
-    CORS(app)
+    CORS(app, resources={r"/*":{"origins": "https://themc.ca"}})
     app.run(debug=True)
